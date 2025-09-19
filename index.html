@@ -1,1 +1,476 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Jogo da Forca</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #22c55e;
+      --warn: #ef4444;
+      --button: #1f2937;
+      --button-hover: #374151;
+      --disabled: #37415188;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 70% -10%, #1f2937 0%, var(--bg) 40%, #0b1022 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .wrap {
+      width: min(1100px, 100%);
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 1fr 1.1fr;
+    }
+    @media (max-width: 900px) {
+      .wrap { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: linear-gradient(180deg, #0b1222 0%, #0c1325 100%);
+      border: 1px solid #1f2a44;
+      box-shadow: 0 10px 40px rgba(0,0,0,.45);
+      border-radius: 16px;
+      padding: 18px;
+    }
+    h1 {
+      margin: 0 0 12px 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 4 / 3;
+      background: radial-gradient(600px 400px at 30% 10%, rgba(255,255,255,0.05), rgba(255,255,255,0) 60%);
+      border-radius: 12px;
+    }
+    .status {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .masked {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 28px;
+      letter-spacing: 8px;
+      text-align: center;
+      padding: 14px 10px;
+      background: #0b142a;
+      border: 1px solid #1d2a4a;
+      border-radius: 10px;
+      user-select: none;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      min-height: 64px;
+    }
+    .info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .info b { color: var(--text); }
+    .row {
+      display: grid;
+      gap: 16px;
+    }
+    .kbd {
+      display: grid;
+      grid-template-columns: repeat(14, 1fr);
+      gap: 8px;
+    }
+    @media (max-width: 500px) {
+      .kbd { grid-template-columns: repeat(10, 1fr); }
+    }
+    button.key {
+      background: var(--button);
+      border: 1px solid #374151;
+      color: var(--text);
+      padding: 10px 0;
+      border-radius: 8px;
+      font-weight: 600;
+      letter-spacing: .3px;
+      cursor: pointer;
+      transition: transform .02s ease, background .15s ease, border-color .15s ease;
+      user-select: none;
+    }
+    button.key:hover { background: var(--button-hover); }
+    button.key:active { transform: translateY(1px); }
+    button.key[disabled] {
+      color: #94a3b8;
+      background: var(--disabled);
+      border-color: #3b4458;
+      cursor: not-allowed;
+    }
+    button.key.good { background: #14532d; border-color: #16a34a; }
+    button.key.bad { background: #5b1620; border-color: #ef4444; }
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+    }
+    .controls .left { display: flex; gap: 10px; align-items: center; }
+    .pill {
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #2a375d;
+      background: #0e1835;
+      color: #cbd5e1;
+    }
+    .btn {
+      background: linear-gradient(180deg, #2563eb, #1d4ed8);
+      border: 1px solid #1e3a8a;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      cursor: pointer;
+      transition: filter .15s ease, transform .02s ease;
+    }
+    .btn:hover { filter: brightness(1.07); }
+    .btn:active { transform: translateY(1px); }
+    .msg {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #26436d;
+      background: #0d1b34;
+      color: #cbd5e1;
+      display: none;
+    }
+    .msg.show { display: block; }
+    .msg.win { border-color: #14532d; background: #0c1e14; color: #d1fae5; }
+    .msg.lose { border-color: #5b1620; background: #1e0c0f; color: #fecaca; }
+    footer {
+      margin-top: 8px;
+      text-align: center;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <h1>Desenho da forca</h1>
+      <canvas id="hangman" width="900" height="675" aria-label="Canvas da forca"></canvas>
+      <div class="info">
+        <div>Erros: <b id="mistakes">0</b>/<b id="maxMistakes">6</b></div>
+        <div>Letras usadas: <span id="used" aria-live="polite"></span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h1>Jogo da forca</h1>
+
+      <div class="status">
+        <div id="masked" class="masked" aria-live="polite">_ _ _ _ _</div>
+        <div id="message" class="msg"></div>
+      </div>
+
+      <div class="controls">
+        <div class="left">
+          <span class="pill">Dica: palavra em português</span>
+          <span class="pill">Acentos são aceitos</span>
+        </div>
+        <button id="reset" class="btn" title="Começar uma nova partida">Novo jogo</button>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <div id="keyboard" class="kbd" aria-label="Teclado de letras"></div>
+        <footer>Digite no seu teclado físico ou use o teclado virtual.</footer>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Lista de palavras em português (exibidas com acento; comparação ignora acentos)
+    const WORDS = [
+      "ABACATE","ABÓBORA","AÇÚCAR","ALÉM","AMIZADE","ANÁLISE","ÂNCORA","ANÚNCIO","APRENDIZADO",
+      "AQUARELA","ARVORE","AVENTURA","BALÃO","BANHEIRA","BARBATANA","BIBLIOTECA","BORBOLETA",
+      "BRINCADEIRA","CABELEIREIRO","CAFÉ","CAMINHÃO","CANÇÃO","CARAMBOLA","CARÁTER","CARINHO",
+      "CÉU","CHÁ","CHUVEIRO","CORAÇÃO","CORAGEM","CRIATIVIDADE","DESCOBERTA","DESAFIO","DETERMINAÇÃO",
+      "ECOLOGIA","EDUCAÇÃO","ELEFANTE","ENERGIA","ENGENHARIA","ENIGMA","ESCRITÓRIO","ESCURIDÃO",
+      "ESTRATÉGIA","EXEMPLO","FANTASIA","FÉRIAS","FÍSICA","FLAMINGO","FLORESTA","FOTOGRAFIA",
+      "FRAMBOESA","GELADEIRA","GIGANTE","GIRAFA","GIRASSOL","HARMONIA","HISTÓRIA","HORIZONTE",
+      "IMAGINAÇÃO","INCRÍVEL","INSPIRAÇÃO","INVERNO","JANELA","JARDIM","JORNAL","JÚRI","LÂMPADA",
+      "LAGARTIXA","LEITÃO","LIBERDADE","LÍNGUA","LIVRARIA","LUAR","MAÇÃ","MÁSCARA","MECÂNICA",
+      "MELANCIA","MEMÓRIA","MENSAGEM","MILAGRE","MISTÉRIO","MÚSICA","NATUREZA","NEBULOSA","NINHO",
+      "NÚCLEO","ÓPERA","ORIGAMI","ORQUESTRA","OXIGÊNIO","PÁSSARO","PÊNDULO","PÊRA","PESCARIA",
+      "PLANÍCIE","PLANETA","POESIA","PORTUGUÊS","PRESSA","PROGRAMAÇÃO","QUÍMICA","RAIO","RASTRO",
+      "RECEITA","RELÂMPAGO","RESILIÊNCIA","RESPIRAÇÃO","RÍTMICO","ROMANCE","ROUXINOL","SABEDORIA",
+      "SAUDADE","SEREIA","SOMBRINHA","SORRISO","TÁTICA","TELEFONE","TÊNIS","TIGELA","TRANQUILO",
+      "TROVÃO","TÚNEL","UVA","VACINA","VANTAGEM","VENTILADOR","VIAGEM","VIOLÃO","VITÓRIA","VOCAÇÃO",
+      "XÍCARA","ZEBRA","CORAÇÃO","MATE","POMPEIA","BRASIL","SÃO PAULO"
+    ];
+
+    // Teclado virtual (inclui Ç). A comparação ignora acentos; exibição preserva.
+    const KEYS = [
+      ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""), "Ç"
+    ];
+
+    // Util: normaliza removendo acentos e deixando maiúscula
+    const normalize = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
+
+    // Estado do jogo
+    let secretOriginal = "";
+    let secretClean = "";
+    let revealed = [];      // array de boolean para cada posição
+    let usedLetters = new Set();
+    let mistakes = 0;
+    const maxMistakes = 6;
+
+    // Refs
+    const maskedEl = document.getElementById("masked");
+    const usedEl = document.getElementById("used");
+    const mistakesEl = document.getElementById("mistakes");
+    const maxMistakesEl = document.getElementById("maxMistakes");
+    const keyboardEl = document.getElementById("keyboard");
+    const resetBtn = document.getElementById("reset");
+    const msgEl = document.getElementById("message");
+    const canvas = document.getElementById("hangman");
+    const ctx = canvas.getContext("2d");
+
+    maxMistakesEl.textContent = maxMistakes;
+
+    // Desenha a forca e o boneco conforme erros
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // fundo sutil
+      const grad = ctx.createRadialGradient(200, 80, 30, 450, 220, 600);
+      grad.addColorStop(0, "rgba(255,255,255,0.05)");
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    function drawGallows() {
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = "#94a3b8";
+      // base
+      ctx.beginPath();
+      ctx.moveTo(120, 620); ctx.lineTo(380, 620);
+      ctx.stroke();
+      // poste
+      ctx.beginPath();
+      ctx.moveTo(200, 620); ctx.lineTo(200, 140);
+      ctx.stroke();
+      // viga
+      ctx.beginPath();
+      ctx.moveTo(200, 140); ctx.lineTo(450, 140);
+      ctx.stroke();
+      // corda
+      ctx.beginPath();
+      ctx.moveTo(450, 140); ctx.lineTo(450, 200);
+      ctx.stroke();
+      // reforço diagonal
+      ctx.beginPath();
+      ctx.moveTo(200, 240); ctx.lineTo(300, 140);
+      ctx.stroke();
+    }
+    function drawPart(step) {
+      ctx.strokeStyle = "#e2e8f0";
+      ctx.lineWidth = 6;
+      switch(step) {
+        case 1: // cabeça
+          ctx.beginPath();
+          ctx.arc(450, 230, 30, 0, Math.PI * 2);
+          ctx.stroke();
+          break;
+        case 2: // corpo
+          ctx.beginPath();
+          ctx.moveTo(450, 260); ctx.lineTo(450, 360);
+          ctx.stroke();
+          break;
+        case 3: // braço esquerdo
+          ctx.beginPath();
+          ctx.moveTo(450, 290); ctx.lineTo(410, 330);
+          ctx.stroke();
+          break;
+        case 4: // braço direito
+          ctx.beginPath();
+          ctx.moveTo(450, 290); ctx.lineTo(490, 330);
+          ctx.stroke();
+          break;
+        case 5: // perna esquerda
+          ctx.beginPath();
+          ctx.moveTo(450, 360); ctx.lineTo(420, 420);
+          ctx.stroke();
+          break;
+        case 6: // perna direita + olhos X
+          ctx.beginPath();
+          ctx.moveTo(450, 360); ctx.lineTo(480, 420);
+          ctx.stroke();
+          // olhos
+          ctx.lineWidth = 3.5;
+          // x esquerdo
+          ctx.beginPath();
+          ctx.moveTo(440, 222); ctx.lineTo(447, 229);
+          ctx.moveTo(447, 222); ctx.lineTo(440, 229);
+          ctx.stroke();
+          // x direito
+          ctx.beginPath();
+          ctx.moveTo(453, 222); ctx.lineTo(460, 229);
+          ctx.moveTo(460, 222); ctx.lineTo(453, 229);
+          ctx.stroke();
+          break;
+      }
+    }
+    function renderHangman() {
+      clearCanvas();
+      drawGallows();
+      for (let i = 1; i <= mistakes; i++) drawPart(i);
+    }
+
+    function pickWord() {
+      secretOriginal = WORDS[Math.floor(Math.random() * WORDS.length)];
+      secretClean = normalize(secretOriginal);
+      revealed = Array.from(secretOriginal).map(ch => {
+        const isLetter = /[A-ZÁÂÃÀÉÊÍÓÔÕÚÇ]/i.test(ch);
+        return !isLetter ? true : false; // pontuação/espaço já revelam
+      });
+    }
+
+    function updateMasked() {
+      const chars = Array.from(secretOriginal);
+      const out = chars.map((ch, i) => {
+        const cleanCh = normalize(ch);
+        const isLetter = /[A-Z]/i.test(cleanCh);
+        if (!isLetter || revealed[i]) return ch; // mantém acento e pontuação
+        return "_";
+      }).join(" ");
+      maskedEl.textContent = out;
+    }
+
+    function updateUsed() {
+      usedEl.textContent = Array.from(usedLetters).sort().join(" ");
+      mistakesEl.textContent = mistakes;
+    }
+
+    function showMessage(type, text) {
+      msgEl.className = "msg show " + (type || "");
+      msgEl.textContent = text;
+    }
+
+    function hideMessage() {
+      msgEl.className = "msg";
+      msgEl.textContent = "";
+    }
+
+    function enableKeyboard(enabled) {
+      keyboardEl.querySelectorAll("button.key").forEach(btn => {
+        btn.disabled = !enabled || btn.dataset.used === "1";
+      });
+    }
+
+    function finish(win) {
+      enableKeyboard(false);
+      if (win) {
+        showMessage("win", "Vitória! Você acertou: " + secretOriginal);
+      } else {
+        // Revela tudo
+        revealed = revealed.map(() => true);
+        updateMasked();
+        showMessage("lose", "Fim de jogo! A palavra era: " + secretOriginal);
+      }
+    }
+
+    function guessLetter(letterRaw) {
+      const letter = normalize(letterRaw).replace(/[^A-Z]/g, "");
+      if (!letter || usedLetters.has(letter)) return;
+
+      usedLetters.add(letter);
+      const btn = document.querySelector(`button.key[data-key="${letter}"]`);
+      if (btn) { btn.dataset.used = "1"; btn.disabled = true; }
+
+      let hit = false;
+      Array.from(secretClean).forEach((ch, i) => {
+        if (ch === letter) {
+          revealed[i] = true;
+          hit = true;
+        }
+      });
+
+      if (btn) btn.classList.add(hit ? "good" : "bad");
+
+      if (!hit) {
+        mistakes++;
+        renderHangman();
+        if (mistakes >= maxMistakes) {
+          finish(false);
+        }
+      } else {
+        updateMasked();
+        // Checa vitória
+        const won = revealed.every(v => v === true);
+        if (won) finish(true);
+      }
+      updateUsed();
+    }
+
+    function buildKeyboard() {
+      keyboardEl.innerHTML = "";
+      KEYS.forEach(k => {
+        const key = normalize(k);
+        const btn = document.createElement("button");
+        btn.className = "key";
+        btn.textContent = k;
+        btn.dataset.key = key;
+        btn.addEventListener("click", () => guessLetter(k));
+        keyboardEl.appendChild(btn);
+      });
+    }
+
+    function resetGame() {
+      hideMessage();
+      usedLetters = new Set();
+      mistakes = 0;
+      pickWord();
+      updateMasked();
+      updateUsed();
+      buildKeyboard();
+      enableKeyboard(true);
+      renderHangman();
+    }
+
+    // Suporte ao teclado físico
+    window.addEventListener("keydown", (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const ch = e.key.toUpperCase();
+      // Aceita A-Z, Ç e letras acentuadas (serão normalizadas)
+      if (/^[A-ZÇ]$/i.test(ch) || /[À-ú]/.test(ch)) {
+        guessLetter(ch);
+      } else if (e.key === "Enter") {
+        // Novo jogo rápido se terminou
+        const disabledAll = Array.from(document.querySelectorAll("button.key")).every(b => b.disabled);
+        if (disabledAll) resetGame();
+      }
+    });
+
+    resetBtn.addEventListener("click", resetGame);
+
+    // Inicializa
+    resetGame();
+  </script>
+</body>
+</html>
 
